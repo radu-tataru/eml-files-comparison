@@ -5,6 +5,8 @@ import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
 import java.io.*;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class EmlParser {
 
@@ -172,24 +174,35 @@ public class EmlParser {
     private static String decodeHtmlEntities(String text) {
         if (text == null || text.isEmpty()) return text;
 
-        // Decode numeric character references (&#NNNN; and &#xHHHH;)
-        text = text.replaceAll("&#(\\d+);", match -> {
+        // Decode numeric character references (&#NNNN;)
+        Pattern decimalPattern = Pattern.compile("&#(\\d+);");
+        Matcher decimalMatcher = decimalPattern.matcher(text);
+        StringBuffer sb = new StringBuffer();
+        while (decimalMatcher.find()) {
             try {
-                int code = Integer.parseInt(match.substring(2, match.length() - 1));
-                return String.valueOf((char) code);
+                int code = Integer.parseInt(decimalMatcher.group(1));
+                decimalMatcher.appendReplacement(sb, String.valueOf((char) code));
             } catch (NumberFormatException e) {
-                return match;
+                decimalMatcher.appendReplacement(sb, decimalMatcher.group(0));
             }
-        });
+        }
+        decimalMatcher.appendTail(sb);
+        text = sb.toString();
 
-        text = text.replaceAll("&#[xX]([0-9a-fA-F]+);", match -> {
+        // Decode hexadecimal character references (&#xHHHH;)
+        Pattern hexPattern = Pattern.compile("&#[xX]([0-9a-fA-F]+);");
+        Matcher hexMatcher = hexPattern.matcher(text);
+        sb = new StringBuffer();
+        while (hexMatcher.find()) {
             try {
-                int code = Integer.parseInt(match.substring(3, match.length() - 1), 16);
-                return String.valueOf((char) code);
+                int code = Integer.parseInt(hexMatcher.group(1), 16);
+                hexMatcher.appendReplacement(sb, String.valueOf((char) code));
             } catch (NumberFormatException e) {
-                return match;
+                hexMatcher.appendReplacement(sb, hexMatcher.group(0));
             }
-        });
+        }
+        hexMatcher.appendTail(sb);
+        text = sb.toString();
 
         // Decode named HTML entities
         text = text.replaceAll("&nbsp;", " ");
