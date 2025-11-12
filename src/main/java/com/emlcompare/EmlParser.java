@@ -78,8 +78,18 @@ public class EmlParser {
 
     private static void processContent(Object content, EmailData emailData) throws Exception {
         if (content instanceof String) {
-            if (emailData.getTextBody() == null) {
-                emailData.setTextBody((String) content);
+            String stringContent = (String) content;
+            // Check if the content looks like HTML
+            if (stringContent.trim().startsWith("<") && stringContent.contains("</")) {
+                // It's HTML content
+                if (emailData.getHtmlBody() == null) {
+                    emailData.setHtmlBody(stringContent);
+                }
+            } else {
+                // It's plain text content
+                if (emailData.getTextBody() == null) {
+                    emailData.setTextBody(stringContent);
+                }
             }
         } else if (content instanceof Multipart) {
             Multipart multipart = (Multipart) content;
@@ -150,17 +160,104 @@ public class EmlParser {
         text = text.replaceAll("(?i)<style[^>]*>.*?</style>", "");
         // Remove HTML tags
         text = text.replaceAll("<[^>]+>", "");
-        // Decode common HTML entities
+        // Decode HTML entities (including numeric character references)
+        text = decodeHtmlEntities(text);
+        // Clean up multiple spaces and blank lines
+        text = text.replaceAll("[ \\t]+", " ");
+        text = text.replaceAll("(?m)^[ \\t]*\\r?\\n", "");
+        text = text.replaceAll("\\n{3,}", "\n\n");
+        return text.trim();
+    }
+
+    private static String decodeHtmlEntities(String text) {
+        if (text == null || text.isEmpty()) return text;
+
+        // Decode numeric character references (&#NNNN; and &#xHHHH;)
+        text = text.replaceAll("&#(\\d+);", match -> {
+            try {
+                int code = Integer.parseInt(match.substring(2, match.length() - 1));
+                return String.valueOf((char) code);
+            } catch (NumberFormatException e) {
+                return match;
+            }
+        });
+
+        text = text.replaceAll("&#[xX]([0-9a-fA-F]+);", match -> {
+            try {
+                int code = Integer.parseInt(match.substring(3, match.length() - 1), 16);
+                return String.valueOf((char) code);
+            } catch (NumberFormatException e) {
+                return match;
+            }
+        });
+
+        // Decode named HTML entities
         text = text.replaceAll("&nbsp;", " ");
         text = text.replaceAll("&amp;", "&");
         text = text.replaceAll("&lt;", "<");
         text = text.replaceAll("&gt;", ">");
         text = text.replaceAll("&quot;", "\"");
         text = text.replaceAll("&#39;", "'");
-        // Clean up multiple spaces and blank lines
-        text = text.replaceAll("[ \\t]+", " ");
-        text = text.replaceAll("(?m)^[ \\t]*\\r?\\n", "");
-        text = text.replaceAll("\\n{3,}", "\n\n");
-        return text.trim();
+        text = text.replaceAll("&apos;", "'");
+
+        // Romanian diacritics
+        text = text.replaceAll("&aacute;", "á");
+        text = text.replaceAll("&Aacute;", "Á");
+        text = text.replaceAll("&acirc;", "â");
+        text = text.replaceAll("&Acirc;", "Â");
+        text = text.replaceAll("&icirc;", "î");
+        text = text.replaceAll("&Icirc;", "Î");
+        text = text.replaceAll("&scaron;", "š");
+        text = text.replaceAll("&Scaron;", "Š");
+        text = text.replaceAll("&tcaron;", "ť");
+        text = text.replaceAll("&Tcaron;", "Ť");
+
+        // Additional common Latin characters
+        text = text.replaceAll("&agrave;", "à");
+        text = text.replaceAll("&Agrave;", "À");
+        text = text.replaceAll("&atilde;", "ã");
+        text = text.replaceAll("&Atilde;", "Ã");
+        text = text.replaceAll("&auml;", "ä");
+        text = text.replaceAll("&Auml;", "Ä");
+        text = text.replaceAll("&aring;", "å");
+        text = text.replaceAll("&Aring;", "Å");
+        text = text.replaceAll("&eacute;", "é");
+        text = text.replaceAll("&Eacute;", "É");
+        text = text.replaceAll("&egrave;", "è");
+        text = text.replaceAll("&Egrave;", "È");
+        text = text.replaceAll("&ecirc;", "ê");
+        text = text.replaceAll("&Ecirc;", "Ê");
+        text = text.replaceAll("&euml;", "ë");
+        text = text.replaceAll("&Euml;", "Ë");
+        text = text.replaceAll("&iacute;", "í");
+        text = text.replaceAll("&Iacute;", "Í");
+        text = text.replaceAll("&igrave;", "ì");
+        text = text.replaceAll("&Igrave;", "Ì");
+        text = text.replaceAll("&iuml;", "ï");
+        text = text.replaceAll("&Iuml;", "Ï");
+        text = text.replaceAll("&oacute;", "ó");
+        text = text.replaceAll("&Oacute;", "Ó");
+        text = text.replaceAll("&ograve;", "ò");
+        text = text.replaceAll("&Ograve;", "Ò");
+        text = text.replaceAll("&ocirc;", "ô");
+        text = text.replaceAll("&Ocirc;", "Ô");
+        text = text.replaceAll("&otilde;", "õ");
+        text = text.replaceAll("&Otilde;", "Õ");
+        text = text.replaceAll("&ouml;", "ö");
+        text = text.replaceAll("&Ouml;", "Ö");
+        text = text.replaceAll("&uacute;", "ú");
+        text = text.replaceAll("&Uacute;", "Ú");
+        text = text.replaceAll("&ugrave;", "ù");
+        text = text.replaceAll("&Ugrave;", "Ù");
+        text = text.replaceAll("&ucirc;", "û");
+        text = text.replaceAll("&Ucirc;", "Û");
+        text = text.replaceAll("&uuml;", "ü");
+        text = text.replaceAll("&Uuml;", "Ü");
+        text = text.replaceAll("&ccedil;", "ç");
+        text = text.replaceAll("&Ccedil;", "Ç");
+        text = text.replaceAll("&ntilde;", "ñ");
+        text = text.replaceAll("&Ntilde;", "Ñ");
+
+        return text;
     }
 }
